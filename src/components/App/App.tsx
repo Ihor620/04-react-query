@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import ReactPaginate from "react-paginate"
-import { Toaster } from "react-hot-toast"
+import toast, { Toaster } from "react-hot-toast"
 
 import SearchBar from "../SearchBar/SearchBar"
 import MovieGrid from "../MovieGrid/MovieGrid"
@@ -15,19 +15,35 @@ import type { Movie } from "../../types/movie"
 import css from "./App.module.css"
 
 export default function App() {
-
   const [query, setQuery] = useState("")
   const [page, setPage] = useState(1)
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null)
+  const [prevMovies, setPrevMovies] = useState<Movie[]>([])
+  const [prevTotalPages, setPrevTotalPages] = useState(0)
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isSuccess, isFetching } = useQuery({
     queryKey: ["movies", query, page],
     queryFn: () => fetchMovies(query, page),
     enabled: query !== "",
+    staleTime: 5000,
+    placeholderData: { results: prevMovies, total_pages: prevTotalPages },
   })
 
   const movies = data?.results ?? []
   const totalPages = data?.total_pages ?? 0
+
+  useEffect(() => {
+    if (isSuccess) {
+      setPrevMovies(movies)
+      setPrevTotalPages(totalPages)
+    }
+  }, [isSuccess, movies, totalPages])
+
+  useEffect(() => {
+  if (isSuccess && !isFetching && data && data.results.length === 0 && query !== "") {
+    toast.error("No movies found for your request.")
+  }
+}, [isSuccess, isFetching, data, query])
 
   const handleSearch = (newQuery: string) => {
     setQuery(newQuery)
@@ -41,7 +57,6 @@ export default function App() {
       <Toaster position="top-right" />
 
       {isLoading && <Loader />}
-
       {isError && <ErrorMessage />}
 
       {totalPages > 1 && (
@@ -57,19 +72,15 @@ export default function App() {
           previousLabel="←"
         />
       )}
-      
-      {movies.length > 0 && (
-        <MovieGrid
-          movies={movies}
-          onSelect={setSelectedMovie}
-        />
+
+      {isSuccess && movies.length > 0 && (
+        <MovieGrid movies={movies} onSelect={setSelectedMovie} />
       )}
 
+      {isFetching && !isLoading && <Loader />}
+
       {selectedMovie && (
-        <MovieModal
-          movie={selectedMovie}
-          onClose={() => setSelectedMovie(null)}
-        />
+        <MovieModal movie={selectedMovie} onClose={() => setSelectedMovie(null)} />
       )}
     </>
   )

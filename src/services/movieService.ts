@@ -12,7 +12,6 @@ export const fetchMovies = async (
   query: string,
   page: number
 ): Promise<MoviesResponse> => {
-
   const response = await axios.get<MoviesResponse>(
     `${BASE_URL}/search/movie`,
     {
